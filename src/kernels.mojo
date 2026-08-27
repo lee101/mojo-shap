@@ -1,7 +1,5 @@
 """Exact path-dependent TreeSHAP and KernelSHAP masking kernels."""
 
-from std.algorithm import parallelize
-from std.runtime import initialize_runtime
 from std.sys.info import simd_width_of
 
 
@@ -361,7 +359,7 @@ def tree_shap(
     var path_one = FPtr(unsafe_from_address=path_one_addr)
     var path_weight = FPtr(unsafe_from_address=path_weight_addr)
 
-    @parameter
+    @__parameter
     def process_row(r: Int, scratch_row: Int):
         var scratch_offset = scratch_row * path_stride
         explain_tree_row(
@@ -386,21 +384,8 @@ def tree_shap(
             path_weight + scratch_offset,
         )
 
-    if n_rows >= 8 and n_rows * n_trees >= 512:
-        initialize_runtime()
-        var task_count = min(n_rows, 64)
-
-        @parameter
-        def process_task(task: Int):
-            var start = task * n_rows // task_count
-            var end = (task + 1) * n_rows // task_count
-            for r in range(start, end):
-                process_row(r, task)
-
-        parallelize[process_task](task_count)
-    else:
-        for r in range(n_rows):
-            process_row(r, 0)
+    for r in range(n_rows):
+        process_row(r, 0)
     return 0
 
 
