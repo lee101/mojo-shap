@@ -1,5 +1,7 @@
 """Exact path-dependent TreeSHAP and KernelSHAP masking kernels."""
 
+from max.algorithm import parallelize
+from std.runtime import initialize_runtime
 from std.sys.info import simd_width_of
 
 
@@ -42,6 +44,7 @@ def unwind_path(
     depth: Int,
     path_index: Int,
 ):
+    comptime W = simd_width_of[DType.float64]()
     var one = one_fraction[path_index]
     var zero = zero_fraction[path_index]
     var next_one = pweight[depth]
@@ -60,7 +63,13 @@ def unwind_path(
                 pweight[i] * Float64(depth + 1)
                 / (zero * Float64(depth - i))
             )
-    for i in range(path_index, depth):
+    var copy_count = depth - path_index
+    var vector_end = path_index + copy_count - copy_count % W
+    for i in range(path_index, vector_end, W):
+        feature.store(i, feature.load[width=W](i + 1))
+        zero_fraction.store(i, zero_fraction.load[width=W](i + 1))
+        one_fraction.store(i, one_fraction.load[width=W](i + 1))
+    for i in range(vector_end, depth):
         feature[i] = feature[i + 1]
         zero_fraction[i] = zero_fraction[i + 1]
         one_fraction[i] = one_fraction[i + 1]
@@ -384,8 +393,23 @@ def tree_shap(
             path_weight + scratch_offset,
         )
 
-    for r in range(n_rows):
-        process_row(r, 0)
+    if path_stride == 0:
+        for r in range(n_rows):
+            process_row(r, 0)
+        return 0
+
+    var tasks = min(n_rows, 64)
+    var rows_per_task = (n_rows + tasks - 1) // tasks
+
+    @always_inline
+    def process_task(task: Int) {imm n_rows, imm rows_per_task}:
+        var start = task * rows_per_task
+        var end = min(start + rows_per_task, n_rows)
+        for r in range(start, end):
+            process_row(r, task)
+
+    initialize_runtime()
+    parallelize(process_task, tasks, tasks)
     return 0
 
 

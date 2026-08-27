@@ -97,8 +97,8 @@ rows only when the TreeSHAP workload crosses its size threshold.
 
 | case | mojo-shap | shap | result |
 | --- | ---: | ---: | ---: |
-| TreeSHAP, random forest with 100 depth-10 trees, 1,000 rows | 451.1 ms | 13,932.5 ms | 30.89x faster |
-| exact Kernel SHAP, 10 rows, 10 features, 100 background rows | 160.4 ms | 788.4 ms | 4.92x faster |
+| TreeSHAP, random forest with 100 depth-10 trees, 1,000 rows | 411.0 ms | 10,149.2 ms | 24.70x faster |
+| exact Kernel SHAP, 10 rows, 10 features, 100 background rows | 102.0 ms | 457.3 ms | 4.48x faster |
 
 TreeSHAP vectorizes path-buffer copies, output clearing, and multi-output leaf
 accumulation. Large row batches are split into at most 64 parallel work chunks;
@@ -107,7 +107,10 @@ because coalition materialization is one compiled Mojo call per batch rather
 than repeated NumPy indexing and copying. The benchmark includes model
 evaluation and weighted regression; it does not time an isolated toy kernel.
 
-There is no GPU implementation. Both kernels run on the CPU.
+There is no GPU implementation. TreeSHAP is branch-heavy pointer traversal,
+while Kernel SHAP's compiled masking kernel is a copy with well below two
+floating-point operations per byte moved. Neither has enough arithmetic
+intensity to justify device transfers, so both kernels stay on the CPU.
 
 ## How it works
 
