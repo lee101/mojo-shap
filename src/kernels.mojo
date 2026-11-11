@@ -66,9 +66,9 @@ def unwind_path(
     var copy_count = depth - path_index
     var vector_end = path_index + copy_count - copy_count % W
     for i in range(path_index, vector_end, W):
-        feature.store(i, feature.load[width=W](i + 1))
-        zero_fraction.store(i, zero_fraction.load[width=W](i + 1))
-        one_fraction.store(i, one_fraction.load[width=W](i + 1))
+        feature.store(i, feature.unsafe_load[width=W](i + 1))
+        zero_fraction.store(i, zero_fraction.unsafe_load[width=W](i + 1))
+        one_fraction.store(i, one_fraction.unsafe_load[width=W](i + 1))
     for i in range(vector_end, depth):
         feature[i] = feature[i + 1]
         zero_fraction[i] = zero_fraction[i + 1]
@@ -135,10 +135,10 @@ def recurse_tree(
     var path_count = depth + 1
     var vector_end = path_count - path_count % W
     for i in range(0, vector_end, W):
-        path_feature.store(i, parent_feature.load[width=W](i))
-        path_zero.store(i, parent_zero.load[width=W](i))
-        path_one.store(i, parent_one.load[width=W](i))
-        path_weight.store(i, parent_weight.load[width=W](i))
+        path_feature.store(i, parent_feature.unsafe_load[width=W](i))
+        path_zero.store(i, parent_zero.unsafe_load[width=W](i))
+        path_one.store(i, parent_one.unsafe_load[width=W](i))
+        path_weight.store(i, parent_weight.unsafe_load[width=W](i))
     for i in range(vector_end, path_count):
         path_feature[i] = parent_feature[i]
         path_zero[i] = parent_zero[i]
@@ -171,8 +171,8 @@ def recurse_tree(
             for o in range(0, output_end, W):
                 phi_base.store(
                     o,
-                    phi_base.load[width=W](o)
-                    + factor * value_base.load[width=W](o),
+                    phi_base.unsafe_load[width=W](o)
+                    + factor * value_base.unsafe_load[width=W](o),
                 )
             for o in range(output_end, n_outputs):
                 phi[f * n_outputs + o] += factor * value[node * n_outputs + o]
